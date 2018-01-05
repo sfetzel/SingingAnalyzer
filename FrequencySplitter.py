@@ -80,6 +80,10 @@ for position in range(0, len(signal), dataPointCount):
 	sys.stdout.write("From " + str(position/fs) + "s to " + str((position+dataPointCount)/fs) + "s: ");
 	sys.stdout.write('autocorrelation: %f Hz' % frequency + "\n");
 	
+	
+peakFrequenciesFileAll = open("splitted/peaks.txt", "a+")
+peakFrequenciesFile = open("splitted/peaks-" + suffixForOutput + ".txt", "w+")
+	
 position = 0
 while position < len(frequencies):
 	frequenciesOfThisPart = frequencies[position:(position + partsCount)];
@@ -103,18 +107,27 @@ while position < len(frequencies):
 		# get local maximums
 		fourierTransformIndices = range(0, len(fourierTransform));
 		
-		peakIndices = peakutils.indexes(fourierTransform)
+		# minimum distance between maximums must be at least 5 Hz
+		# threshold is "Normalized threshold. Only the peaks with amplitude higher than the threshold will be detected."
+		peakIndices = peakutils.indexes(fourierTransform,thres=0.03, min_dist=round(meanFrequency/4))
 		peakInterpolatedIndices = peakutils.interpolate(array(fourierTransformIndices), fourierTransform, ind=peakIndices)
 		
-		for i in range(0, len(peakIndices)):
+		# store frequency followed by normalized absolute value
+		peakFrequenciesFileAll.write(suffixForOutput);
+		peakIndicesPart = peakIndices[:5];
+		for i in range(0, len(peakIndicesPart)):
 			index = peakIndices[i]
 			interpolatedIndex = peakInterpolatedIndices[i];
-			print str(fs * interpolatedIndex / len(signalPart)) + " - " + str(fourierTransform[index]);
+			peakFrequenciesFileAll.write(" " + str(fs * interpolatedIndex / len(signalPart)) + " " + str(fourierTransform[index]/fourierTransform[peakIndices[0]]));
+			peakFrequenciesFile.write(str(fs * interpolatedIndex / len(signalPart)) + " " + str(fourierTransform[index]/fourierTransform[peakIndices[0]]) + " ");
+		peakFrequenciesFile.write("\n");
+		peakFrequenciesFileAll.write("\n");
 		
 		
 		for i in range(0, len(fourierTransform)):
-			frequency = fs * i / len(signalPart)
-			spectrumFile.write(str(frequency) + " " + str(fourierTransform[i]) + "\n");
+			if(fourierTransform[i] > 0.1):
+				frequency = fs * i / len(signalPart)
+				spectrumFile.write(str(frequency) + " " + str(fourierTransform[i]) + "\n");
 		
 		spectrumFile.close();
 				
