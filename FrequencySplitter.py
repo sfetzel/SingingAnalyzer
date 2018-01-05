@@ -5,6 +5,7 @@ from __future__ import division
 from numpy.fft import rfft
 from numpy import argmax, mean, diff, log, array, std, linspace
 from matplotlib.mlab import find
+import matplotlib.pyplot as pyplot
 from scipy.signal import blackmanharris, fftconvolve, hanning
 import peakutils
 from time import time
@@ -41,11 +42,52 @@ def freq_from_autocorr(sig, fs):
     return fs / px
 
 
+def store_fouriertransformation(filename, fourierTransform, signalPartLength):
+	spectrumFile = open(filename + ".txt", "w+")
+	for i in range(0, len(fourierTransform)):
+		if(fourierTransform[i] > 0.1):
+			frequency = fs * i / signalPartLength
+			spectrumFile.write(str(frequency) + " " + str(fourierTransform[i]) + "\n");
+	spectrumFile.close();
+
+def store_diagram(filename, x, fourierTransform, title):
+	pyplot.plot(x, fourierTransform);
+	pyplot.title(title);
+	pyplot.xscale('log');
+	#pyplot.yscale('log');
+	pyplot.axes([50, 3000, 0, 1]);
+	pyplot.savefig(filename + ".png");
+	pyplot.close();
+
+
+def store_local_maximums(fourierTransform, meanFrequency, suffixForOutput):
+	fourierTransformIndices = range(0, len(fourierTransform));
+		
+	# minimum distance between maximums must be at one fourth of the base frequency
+	# threshold is "Normalized threshold. Only the peaks with amplitude higher than the threshold will be detected."
+	peakIndices = peakutils.indexes(fourierTransform,thres=0.03, min_dist=round(meanFrequency/4))
+	peakInterpolatedIndices = peakutils.interpolate(array(fourierTransformIndices), fourierTransform, ind=peakIndices)
+	
+	# store frequency followed by normalized absolute value
+	peakFrequenciesFileAll.write(suffixForOutput);
+	peakIndicesPart = peakIndices[:7];
+	for i in range(0, len(peakIndicesPart)):
+		index = peakIndices[i]
+		interpolatedIndex = peakInterpolatedIndices[i];
+		peakFrequenciesFileAll.write(" " + str(fs * interpolatedIndex / len(signalPart)) + " " + str(fourierTransform[index]/fourierTransform[peakIndices[0]]));
+		peakFrequenciesFile.write(str(fs * interpolatedIndex / len(signalPart)) + " " + str(fourierTransform[index]/fourierTransform[peakIndices[0]]) + " ");
+	peakFrequenciesFile.write("\n");
+	peakFrequenciesFileAll.write("\n");
 
 filename = sys.argv[1]
 suffixForOutput = "-frequency";
 if(len(sys.argv) > 1):
 	suffixForOutput = sys.argv[2];
+	
+
+
+peakFrequenciesFileAll = open("splitted/peaks.txt", "a+")
+peakFrequenciesFile = open("splitted/peaks" + suffixForOutput + ".txt", "w+")
 
 print 'Reading file "%s"' % filename
 try:
@@ -81,8 +123,6 @@ for position in range(0, len(signal), dataPointCount):
 	sys.stdout.write('autocorrelation: %f Hz' % frequency + "\n");
 	
 	
-peakFrequenciesFileAll = open("splitted/peaks.txt", "a+")
-peakFrequenciesFile = open("splitted/peaks-" + suffixForOutput + ".txt", "w+")
 	
 position = 0
 while position < len(frequencies):
@@ -97,39 +137,31 @@ while position < len(frequencies):
 		signalPart = signal[dataPointCount*position:dataPointCount*(position + partsCount)];
 		print "-Found passage from %d to %d s with mean frequency of %f" % (position*partTimeLength, (position+partsCount)*partTimeLength, meanFrequency)
 		filename = "splitted/" + str(round(meanFrequency)) + suffixForOutput;
+		
+		# store part in flac file
 		sf.write(filename + ".flac", signalPart, fs)
 		
 		
+		# get fourier transform
 		windowed = signalPart * hanning(len(signalPart))
 		fourierTransform = abs(rfft(windowed))
-		spectrumFile = open(filename + ".txt", "w+")
-
+		
+		# store fourier transform
+		store_fouriertransformation(filename, fourierTransform, len(signalPart))
+		
+		# indices of fourierTransform list are not frequencies, map them
+		frequencies = [index * fs / len(signalPart) for index in range(0, len(fourierTransform))];
+		
+		fourierTransformMaximum = max(fourierTransform);
+		normalizedFourierTransform = [ x / fourierTransformMaximum for x in fourierTransform];
+		
+		# diagram
+		store_diagram(filename, frequencies, normalizedFourierTransform,
+			str(meanFrequency) + " Hz " + suffixForOutput);
+		
 		# get local maximums
-		fourierTransformIndices = range(0, len(fourierTransform));
+		#store_local_maximums(fourierTransform, meanFrequency, suffixForOutput);
 		
-		# minimum distance between maximums must be at least 5 Hz
-		# threshold is "Normalized threshold. Only the peaks with amplitude higher than the threshold will be detected."
-		peakIndices = peakutils.indexes(fourierTransform,thres=0.03, min_dist=round(meanFrequency/4))
-		peakInterpolatedIndices = peakutils.interpolate(array(fourierTransformIndices), fourierTransform, ind=peakIndices)
-		
-		# store frequency followed by normalized absolute value
-		peakFrequenciesFileAll.write(suffixForOutput);
-		peakIndicesPart = peakIndices[:5];
-		for i in range(0, len(peakIndicesPart)):
-			index = peakIndices[i]
-			interpolatedIndex = peakInterpolatedIndices[i];
-			peakFrequenciesFileAll.write(" " + str(fs * interpolatedIndex / len(signalPart)) + " " + str(fourierTransform[index]/fourierTransform[peakIndices[0]]));
-			peakFrequenciesFile.write(str(fs * interpolatedIndex / len(signalPart)) + " " + str(fourierTransform[index]/fourierTransform[peakIndices[0]]) + " ");
-		peakFrequenciesFile.write("\n");
-		peakFrequenciesFileAll.write("\n");
-		
-		
-		for i in range(0, len(fourierTransform)):
-			if(fourierTransform[i] > 0.1):
-				frequency = fs * i / len(signalPart)
-				spectrumFile.write(str(frequency) + " " + str(fourierTransform[i]) + "\n");
-		
-		spectrumFile.close();
 				
 		position += partsCount;
 	else:
