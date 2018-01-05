@@ -1,52 +1,21 @@
+# based on: https://gist.github.com/endolith/255291
+
+
 from __future__ import division
 from numpy.fft import rfft
-from numpy import argmax, mean, diff, log
+from numpy import argmax, mean, diff, log, array, std, linspace
 from matplotlib.mlab import find
 from scipy.signal import blackmanharris, fftconvolve, hanning
+import peakutils
 from time import time
 import sys
+import math
 try:
     import soundfile as sf
 except ImportError:
     from scikits.audiolab import flacread
 
 from parabolic import parabolic
-
-
-def freq_from_crossings(sig, fs):
-    """
-    Estimate frequency by counting zero crossings
-    """
-    # Find all indices right before a rising-edge zero crossing
-    indices = find((sig[1:] >= 0) & (sig[:-1] < 0))
-
-    # Naive (Measures 1000.185 Hz for 1000 Hz, for instance)
-    # crossings = indices
-
-    # More accurate, using linear interpolation to find intersample
-    # zero-crossings (Measures 1000.000129 Hz for 1000 Hz, for instance)
-    crossings = [i - sig[i] / (sig[i+1] - sig[i]) for i in indices]
-
-    # Some other interpolation based on neighboring points might be better.
-    # Spline, cubic, whatever
-
-    return fs / mean(diff(crossings))
-
-
-def freq_from_fft(sig, fs):
-    """
-    Estimate frequency from peak of FFT
-    """
-    # Compute Fourier transform of windowed signal
-    windowed = sig * hanning(len(sig))
-    f = rfft(windowed)
-
-    # Find the peak and interpolate to get a more accurate peak
-    i = argmax(abs(f))  # Just use this for less-accurate, naive version
-    true_i = parabolic(log(abs(f)), i)[0]
-
-    # Convert to equivalent frequency
-    return fs * true_i / len(windowed)
 
 
 def freq_from_autocorr(sig, fs):
@@ -72,51 +41,83 @@ def freq_from_autocorr(sig, fs):
     return fs / px
 
 
-def freq_from_HPS(sig, fs):
-    """
-    Estimate frequency using harmonic product spectrum (HPS)
-
-    """
-    windowed = sig * blackmanharris(len(sig))
-
-    from pylab import subplot, plot, log, copy, show
-
-    # harmonic product spectrum:
-    c = abs(rfft(windowed))
-    maxharms = 8
-    subplot(maxharms, 1, 1)
-    plot(log(c))
-    for x in range(2, maxharms):
-        a = copy(c[::x])  # Should average or maximum instead of decimating
-        # max(c[::x],c[1::x],c[2::x],...)
-        c = c[:len(a)]
-        i = argmax(abs(c))
-        true_i = parabolic(abs(c), i)[0]
-        print 'Pass %d: %f Hz' % (x, fs * true_i / len(windowed))
-        c *= a
-        subplot(maxharms, 1, x)
-        plot(log(c))
-    show()
 
 filename = sys.argv[1]
+suffixForOutput = "-frequency";
+if(len(sys.argv) > 1):
+	suffixForOutput = sys.argv[2];
 
-print 'Reading file "%s"\n' % filename
+print 'Reading file "%s"' % filename
 try:
     signal, fs = sf.read(filename)
 except NameError:
     signal, fs, enc = flacread(filename)
 
+print "Samplerate is [Hz] %f" % fs;
 
-# we want to measure only 0,2s
-dataPointCount = int(fs * 0.2);
+# fs is the samplerate
+# we want to measure the frequency of only 0,2s
+partTimeLength = 0.2;
+dataPointCount = int(fs * partTimeLength);
+
+# but then we want to have parts, which allow a FFT with high quality, how many parts?
+fftSize = 65536;
+partsCount = int(math.ceil(fftSize / fs / partTimeLength));
+
+print "%i parts needed for %i data points" % (partsCount, fftSize);
+print "------";
+
+frequencies = [];
 
 for position in range(0, len(signal), dataPointCount):
-	partOfSignal = signal[position:position+dataPointCount];
+
+	partOfSignal = signal[position:position + dataPointCount];
+
+	frequency = freq_from_autocorr(partOfSignal, fs);
 	
-	print "From " + str(position/fs) + "s to " + str((position+dataPointCount)/fs) + "s:";
-	start_time = time()
-	print 'FFT: %f Hz' % freq_from_fft(partOfSignal, fs)
-	print 'zero crossings: %f Hz' % freq_from_crossings(partOfSignal, fs)
-	print 'autocorrelation: %f Hz' % freq_from_autocorr(partOfSignal, fs)
+	frequencies.append(frequency);
+
+	sys.stdout.write("From " + str(position/fs) + "s to " + str((position+dataPointCount)/fs) + "s: ");
+	sys.stdout.write('autocorrelation: %f Hz' % frequency + "\n");
 	
-	
+position = 0
+while position < len(frequencies):
+	frequenciesOfThisPart = frequencies[position:(position + partsCount)];
+	standardDeviation = std(frequenciesOfThisPart);
+	meanFrequency = mean(frequenciesOfThisPart); 
+		
+	# if standard deviation is less than two Hz, the passage is quite good
+	# also frequency should not be below 40 and over 3000
+	if standardDeviation < 2 and meanFrequency >= 40 and meanFrequency <= 3000:
+
+		signalPart = signal[dataPointCount*position:dataPointCount*(position + partsCount)];
+		print "-Found passage from %d to %d s with mean frequency of %f" % (position*partTimeLength, (position+partsCount)*partTimeLength, meanFrequency)
+		filename = "splitted/" + str(round(meanFrequency)) + suffixForOutput;
+		sf.write(filename + ".flac", signalPart, fs)
+		
+		
+		windowed = signalPart * hanning(len(signalPart))
+		fourierTransform = abs(rfft(windowed))
+		spectrumFile = open(filename + ".txt", "w+")
+
+		# get local maximums
+		fourierTransformIndices = range(0, len(fourierTransform));
+		
+		peakIndices = peakutils.indexes(fourierTransform)
+		peakInterpolatedIndices = peakutils.interpolate(array(fourierTransformIndices), fourierTransform, ind=peakIndices)
+		
+		for i in range(0, len(peakIndices)):
+			index = peakIndices[i]
+			interpolatedIndex = peakInterpolatedIndices[i];
+			print str(fs * interpolatedIndex / len(signalPart)) + " - " + str(fourierTransform[index]);
+		
+		
+		for i in range(0, len(fourierTransform)):
+			frequency = fs * i / len(signalPart)
+			spectrumFile.write(str(frequency) + " " + str(fourierTransform[i]) + "\n");
+		
+		spectrumFile.close();
+				
+		position += partsCount;
+	else:
+		position += 1;
