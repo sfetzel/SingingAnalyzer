@@ -3,7 +3,7 @@
 
 from __future__ import division
 from numpy.fft import rfft
-from numpy import argmax, mean, diff, log, array, std, linspace
+from numpy import argmax, mean, diff, log, array, std, linspace, arange
 from matplotlib.mlab import find
 import matplotlib.pyplot as pyplot
 from scipy.signal import blackmanharris, fftconvolve, hanning
@@ -54,28 +54,22 @@ def store_diagram(filename, x, fourierTransform, title):
 	pyplot.plot(x, fourierTransform);
 	pyplot.title(title);
 	pyplot.xscale('log');
+	#pyplot.xticks(arange(50,3000,300))
 	#pyplot.yscale('log');
 	pyplot.axes([50, 3000, 0, 1]);
 	pyplot.savefig(filename + ".png");
 	pyplot.close();
 
 
-def store_local_maximums(fourierTransform, meanFrequency, suffixForOutput):
-	fourierTransformIndices = range(0, len(fourierTransform));
-		
-	# minimum distance between maximums must be at one fourth of the base frequency
-	# threshold is "Normalized threshold. Only the peaks with amplitude higher than the threshold will be detected."
-	peakIndices = peakutils.indexes(fourierTransform,thres=0.03, min_dist=round(meanFrequency/4))
-	peakInterpolatedIndices = peakutils.interpolate(array(fourierTransformIndices), fourierTransform, ind=peakIndices)
+def store_local_maximums(peakIndices, peakFrequencies, suffixForOutput):
 	
 	# store frequency followed by normalized absolute value
 	peakFrequenciesFileAll.write(suffixForOutput);
 	peakIndicesPart = peakIndices[:7];
 	for i in range(0, len(peakIndicesPart)):
 		index = peakIndices[i]
-		interpolatedIndex = peakInterpolatedIndices[i];
-		peakFrequenciesFileAll.write(" " + str(fs * interpolatedIndex / len(signalPart)) + " " + str(fourierTransform[index]/fourierTransform[peakIndices[0]]));
-		peakFrequenciesFile.write(str(fs * interpolatedIndex / len(signalPart)) + " " + str(fourierTransform[index]/fourierTransform[peakIndices[0]]) + " ");
+		peakFrequenciesFileAll.write(" " + str(peakFrequencies[i]) + " " + str(fourierTransform[index]/fourierTransform[peakIndices[0]]));
+		peakFrequenciesFile.write(str(peakFrequencies[i]) + " " + str(fourierTransform[index]/fourierTransform[peakIndices[0]]) + " ");
 	peakFrequenciesFile.write("\n");
 	peakFrequenciesFileAll.write("\n");
 
@@ -136,31 +130,56 @@ while position < len(frequencies):
 
 		signalPart = signal[dataPointCount*position:dataPointCount*(position + partsCount)];
 		print "-Found passage from %d to %d s with mean frequency of %f" % (position*partTimeLength, (position+partsCount)*partTimeLength, meanFrequency)
-		filename = "splitted/" + str(round(meanFrequency)) + suffixForOutput;
-		
-		# store part in flac file
-		sf.write(filename + ".flac", signalPart, fs)
 		
 		
 		# get fourier transform
 		windowed = signalPart * hanning(len(signalPart))
 		fourierTransform = abs(rfft(windowed))
+		fourierTransformIndices = range(0, len(fourierTransform));
+		
+		# minimum distance between maximums must be at one fourth of the base frequency
+		# threshold is "Normalized threshold. Only the peaks with amplitude higher than the threshold will be detected."
+		peakIndices = peakutils.indexes(fourierTransform,thres=0.03, min_dist=round(meanFrequency/4))
+		peakInterpolatedIndices = peakutils.interpolate(array(fourierTransformIndices), fourierTransform, ind=peakIndices)
+		
+		peakFrequencies = [ x * fs /len(signalPart) for x in peakIndices];
+		
+		# cut very low frequencies which cannot be from singing
+		if(peakFrequencies[0] < 50):
+			peakFrequencies = peakFrequencies[1:]
+			peakIndices = peakIndices[1:]
+
+		filename = "splitted/" + str(round(peakFrequencies[0])) + suffixForOutput;
+		
+		# store part in flac file
+		sf.write(filename + ".flac", signalPart, fs)
+		
 		
 		# store fourier transform
-		store_fouriertransformation(filename, fourierTransform, len(signalPart))
+		#store_fouriertransformation(filename, fourierTransform, len(signalPart))
 		
 		# indices of fourierTransform list are not frequencies, map them
 		frequencies = [index * fs / len(signalPart) for index in range(0, len(fourierTransform))];
+		
+		dbASpectrum = list()
+		# transform from dB to dBA
+		for index in range(0, len(fourierTransform)):
+			# according to https://en.wikipedia.org/wiki/A-weighting#Function_realisation_of_some_common_weightings
+			f = frequencies[index];
+			rAatF = (12194*12194*f**4)/( (f**2 + 20.6**2 ) sqrt((f**2+107.7**2)(f**2+737.9**2)) * (f**2 + 12194**2) )
+			AatF = 20 * log(rAatF) + 2
+			dbASpectrum[f] = AatF * fourierTransform[index];
+			
 		
 		fourierTransformMaximum = max(fourierTransform);
 		normalizedFourierTransform = [ x / fourierTransformMaximum for x in fourierTransform];
 		
 		# diagram
 		store_diagram(filename, frequencies, normalizedFourierTransform,
-			str(meanFrequency) + " Hz " + suffixForOutput);
+			str(peakFrequencies[0]) + " Hz " + suffixForOutput);
 		
 		# get local maximums
-		#store_local_maximums(fourierTransform, meanFrequency, suffixForOutput);
+		#store_local_maximums(peakIndices, peakFrequencies, suffixForOutput);
 		
 				
 		position += partsCount;
