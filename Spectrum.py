@@ -5,9 +5,10 @@ import scipy.signal
 import scikits.talkbox
 
 # reference for decibel calculation
-p0 = 10e-12
+p0 = 2e-5
+#p0 = 10e-12
 
-class Spectrum:
+class Spectrum(object):
 
 
 	def _get_frequencies(self):
@@ -35,13 +36,13 @@ class Spectrum:
 
 
 	# converts the Spectrum instance to a dB spectrum
-	def toDbSplSpectrum(self):
+	def toDbSplSpectrum(self, referenceValue = p0):
 		newSpectrum = Spectrum()
 		newSpectrum.frequencies = copy.copy(self.frequencies)
 		newSpectrum.amplitudes = copy.copy(self.amplitudes)
 		
 		for index in range(0, len(newSpectrum.amplitudes)):
-			newSpectrum.amplitudes[index] = 20 * numpy.log10(newSpectrum.amplitudes[index]/p0)
+			newSpectrum.amplitudes[index] = 20 * numpy.log10(newSpectrum.amplitudes[index]/referenceValue)
 		
 		return newSpectrum
 		
@@ -71,36 +72,16 @@ class Spectrum:
 		
 		windowed = audioData * scipy.signal.hanning(len(audioData))
 		spectrum.amplitudes = numpy.abs(numpy.fft.rfft(windowed))
-		spectrum.frequencies = numpy.array([index * samplingRate / len(audioData) for index in range(0, len(spectrum.amplitudes))]);
+		spectrum.frequencies = numpy.array([index * numpy.float64(samplingRate) / len(audioData) for index in range(0, len(spectrum.amplitudes))]);
 		
 		return spectrum
 
 
 
-	@staticmethod
-	def getByLpc(audioData, samplingRate):
-		# Get Hamming window.
-		window = numpy.hamming(len(audioData))
-
-		# Apply window and high pass filter.
-		audioDataWindowed = audioData * window
-		audioDataFiltered = scipy.signal.lfilter([1], [1., 0.63], audioDataWindowed)
-
-		# Get LPC. number of coefficients according to rule of thumb
-		numberOfCoefficients = 2 + samplingRate / 1000
-		# A are lpc coefficients
-		# another example: https://qiita.com/ar90n@github/items/0611f8d4452d0ccc9151
-		LpcCoefficients, e, k = scikits.talkbox.lpc(audioDataFiltered, numberOfCoefficients)
-
-		# calculate frequency response
-		# according to https://stackoverflow.com/questions/29620694/matlab-freqz-function-in-python
-		w, h = scipy.signal.freqz(1, LpcCoefficients)
-
-		spectrum = Spectrum()
-		spectrum.frequencies = samplingRate * w / (2*math.pi)
-		spectrum.amplitudes = numpy.abs(h)
-		
-		return spectrum
 
 
+
+	#def getLocalMaxima(self, minimumFrequencyDistance = 1):
+		#peakIndices = peakutils.indexes(spectrum.amplitudes, thres=0.02, min_dist=minimumFrequencyDistance)
+		#peakInterpolatedIndices = peakutils.interpolate(array(fourierTransformIndices), fourierTransform, ind=peakIndices)
 

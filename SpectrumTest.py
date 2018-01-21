@@ -2,14 +2,14 @@ import unittest
 import numpy
 import soundfile as sf
 
-from SpectrumFunctions import *
+from Spectrum import *
 
-class SpectrumFunctionsTest(unittest.TestCase):
+class SpectrumTest(unittest.TestCase):
 
 	def testToDbSplSpectrum(self):
 		testSpectrum = Spectrum()
 		testSpectrum.frequencies = numpy.array([ 100, 200, ])
-		testSpectrum.amplitudes = numpy.array([ 10e-12, 10e-11  ])
+		testSpectrum.amplitudes = numpy.array([ p0, p0*10  ])
 		
 		dbSpectrum = testSpectrum.toDbSplSpectrum()
 		
@@ -21,12 +21,14 @@ class SpectrumFunctionsTest(unittest.TestCase):
 	def testToDbASpectrum(self):
 		testSpectrum = Spectrum()
 		testSpectrum.frequencies = numpy.array([ 1000, 205, ])
-		testSpectrum.amplitudes = numpy.array([ 10e-12, 10e-12  ])
+		testSpectrum.amplitudes = numpy.array([ p0, p0  ])
 		
 		dbSpectrum = testSpectrum.toDbASpectrum()
 		
 		self.assertTrue(dbSpectrum.amplitudes[0] < 0.01)
 		self.assertTrue(-11 < dbSpectrum.amplitudes[1] < -9)
+
+
 
 	def testGetByFft(self):
 		audioData, sampleRate = sf.read("test/Sinus440.wav")
@@ -42,20 +44,26 @@ class SpectrumFunctionsTest(unittest.TestCase):
 		for index in range(0, len(spectrum.amplitudes)):
 			self.assertTrue(spectrum.amplitudes[index]<=AmplitudeAt440)
 		
-
-	def testGetByLpc(self):
+		
+		
+	# compare fft results with results from audacity
+	def testGetByFftAudacityComparison(self):
 		audioData, sampleRate = sf.read("test/Sinus440.wav")
-		spectrum = Spectrum.getByLpc(audioData, sampleRate)
+		spectrum = Spectrum.getByFft(audioData[:65536], sampleRate)
 		
 		# check if there is a maximum at 440 Hz
 		LowestDistanceTo440Index = numpy.argmin(numpy.abs(spectrum.frequencies-440))
 		AmplitudeAt440 = spectrum.amplitudes[LowestDistanceTo440Index]
 		
-		self.assertTrue(len(spectrum.amplitudes) > 0)
+		spectrumInDb = spectrum.toDbSplSpectrum(referenceValue=1);
 		
-		# check that 440 Hz is the only maximum
-		for index in range(0, len(spectrum.amplitudes)):
-			self.assertTrue(spectrum.amplitudes[index]<=AmplitudeAt440)
+		# as audacity uses a different calculation for the dB values (according
+		# to source code), a comparison of the amplitudes is not possible,
+		# but a comparision of frequencies is possible
+		self.assertEqual(round(spectrumInDb.frequencies[LowestDistanceTo440Index], 6), 440.084839)
+		self.assertEqual(round(spectrumInDb.frequencies[1], 6), 0.672913)
+		self.assertEqual(round(spectrumInDb.frequencies[2], 6), 1.345825)
+		
 		
 
 
