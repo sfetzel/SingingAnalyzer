@@ -167,19 +167,24 @@ while position < len(frequencies):
 				storeDiagram(filename, fourierSpectrum, fourierDbSplSpectrum, fourierDbASpectrum, lpcSpectrum, lpcDbSplSpectrum, lpcDbASpectrum,
 					str(baseFrequency) + " Hz ");
 	
-				formantIndexes = lpcSpectrum.getFormantIndexes();
+				formantIndexes = lpcDbASpectrum.getFormantIndexes();
 				#singingFormantCadidatesIndex = numpy.array(numpy.argmin((abs(lpcSpectrum.formants-3000) > 2000) & (lpcSpectrum.formants < 3500))).flatten();
 				
 				index = -1
-				firstHarmonicAmplitude = -10
-				while(firstHarmonicAmplitude < 0):
+				baseFrequencyAmplitude = -10
+				while(baseFrequencyAmplitude < 0):
 					index += 1
-					firstHarmonicAmplitude = lpcDbASpectrum.amplitudes[formantIndexes[index]];
+					# due to extreme high amplitudes at the first formant,
+					# which do not occur regularly, it is better to
+					# use the amplitude next to the formant. Otherwise
+					# it seems like the singing formant is very low for singers
+					# although just the baseFrequencyAmplitude is extreme high.
+					baseFrequencyAmplitude = lpcDbASpectrum.amplitudes[formantIndexes[index]+1];
 				
 				for index in range(index, min([14, len(formantIndexes)])):
 					frequency = lpcDbASpectrum.frequencies[formantIndexes[index]];
 					amplitude = lpcDbASpectrum.amplitudes[formantIndexes[index]];
-					relativeAmplitude = amplitude/firstHarmonicAmplitude
+					relativeAmplitude = amplitude/baseFrequencyAmplitude
 					
 					# for formant power diagram
 					if(frequency > 2000 and frequency < 3500):
@@ -210,38 +215,36 @@ while position < len(frequencies):
 		
 	sys.stdout.write('Position: ' + str(position) + "/" + str(len(frequencies)) + "\r")
 
-figure, axesArray = pyplot.subplots(1, sharex=True)
+
+# formant power diagram
+figure, axe = pyplot.subplots(1, sharex=True)
 figure.set_figwidth(14);
 figure.set_figheight(10);
 
-axesArray.set_title(outputFolder)
-axesArray.plot(diagramHarmonicFrequencies, harmonicRelativeAmplitude,  marker='o', color='b', ls='');
-axesArray.plot(diagramSingingFormantFrequencies, singingFormantRelativeAmplitude,  marker='o', color='r', ls='');
-axesArray.set_ylabel("relative amplitude")
-axesArray.set_xlabel("frequency")
+axe.set_title(outputFolder)
+axe.plot(diagramHarmonicFrequencies, harmonicRelativeAmplitude,  marker='o', color='b', ls='', alpha=0.5);
+axe.plot(diagramSingingFormantFrequencies, singingFormantRelativeAmplitude,  marker='o', color='r', ls='', alpha=0.5);
+axe.set_ylabel("relative amplitude")
+axe.set_xlabel("frequency")
 
-
-#axesArray[0].set_xscale('log');
-axesArray.set_xlim(50, 1000);
-axesArray.set_ylim(0, 2);
+#axe.set_xscale('log');
+axe.set_xlim(50, 1000);
+axe.set_ylim(0, 2);
 
 pyplot.savefig(outputFolder + "/formantsPowerDiagram.png");
 pyplot.close();
 
-
-figure, axesArray = pyplot.subplots(1, sharex=True)
+# formant position diagram
+figure, axe = pyplot.subplots(1, sharex=True)
 figure.set_figwidth(14);
 figure.set_figheight(10);
 
-axesArray.set_title(outputFolder)
-axesArray.plot(diagramFormantsFrequency, diagramFormantsFormant,  marker='o', color='b', ls='');
-axesArray.set_ylabel("formant frequency")
-axesArray.set_xlabel("lowest frequency")
+axe.set_title(outputFolder)
+axe.plot(diagramFormantsFrequency, diagramFormantsFormant,  marker='o', color='b', ls='');
+axe.set_ylabel("formant frequency")
+axe.set_xlabel("lowest frequency")
 
-
-
-#axesArray[0].set_xscale('log');
-axesArray.set_xlim(50, 1000);
+axe.set_xlim(50, 1000);
 
 pyplot.savefig(outputFolder + "/formantsRelationDiagram.png");
 pyplot.close();
