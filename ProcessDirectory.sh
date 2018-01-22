@@ -10,7 +10,7 @@ if [ -d "$DIRECTORY" ]; then
 		echo "Processing $audioFilePath"
 		audioFilename=$(basename "$audioFilePath")
 		filenameWithoutExtension="${audioFilename%.*}"
-		python FrequencySplitter.py "$audioFilePath" "-$filenameWithoutExtension" "$OUTPUTDIR"
+		python ../FrequencySplitter.py "$audioFilePath"
 	done
 	
 else

@@ -20,13 +20,17 @@ class SpectrumTest(unittest.TestCase):
 
 	def testToDbASpectrum(self):
 		testSpectrum = Spectrum()
-		testSpectrum.frequencies = numpy.array([ 1000, 205, ])
-		testSpectrum.amplitudes = numpy.array([ p0, p0  ])
+		testSpectrum.frequencies = numpy.array([ 1000, 205, 123, 0 ])
+		testSpectrum.amplitudes = numpy.array([ p0, p0, -numpy.inf, 132  ])
 		
 		dbSpectrum = testSpectrum.toDbASpectrum()
 		
 		self.assertTrue(dbSpectrum.amplitudes[0] < 0.01)
 		self.assertTrue(-11 < dbSpectrum.amplitudes[1] < -9)
+		self.assertEqual(testSpectrum.amplitudes[2], -numpy.Inf)
+		self.assertEqual(testSpectrum.amplitudes[3], 132)
+		self.assertEqual(testSpectrum.amplitudes[0], p0)
+		self.assertEqual(testSpectrum.amplitudes[1], p0)
 
 
 

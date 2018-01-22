@@ -4,6 +4,9 @@ from Spectrum import *
 
 class LpcSpectrum(Spectrum):
 
+	def __init__(self):
+		Spectrum.__init__(self)
+
 	def _get_formants(self):
 		return self.__formants
 		
@@ -13,7 +16,6 @@ class LpcSpectrum(Spectrum):
 		self.__formants = value
 	
 	formants = property(_get_formants, _set_formants)
-
 
 	@staticmethod
 	def getByLpc(audioData, samplingRate):
@@ -50,3 +52,7 @@ class LpcSpectrum(Spectrum):
 		spectrum.formants = numpy.array(sorted(angz * (samplingRate / (2 * math.pi))))
 		
 		return spectrum
+		
+		
+	def getFormantIndexes(self):
+		return [  numpy.argmin(abs(self.frequencies-formant))  for formant in self.formants];

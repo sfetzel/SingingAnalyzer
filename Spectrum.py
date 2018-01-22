@@ -3,6 +3,7 @@ import copy
 import math
 import scipy.signal
 import scikits.talkbox
+import peakutils
 
 # reference for decibel calculation
 p0 = 2e-5
@@ -37,9 +38,7 @@ class Spectrum(object):
 
 	# converts the Spectrum instance to a dB spectrum
 	def toDbSplSpectrum(self, referenceValue = p0):
-		newSpectrum = Spectrum()
-		newSpectrum.frequencies = copy.copy(self.frequencies)
-		newSpectrum.amplitudes = copy.copy(self.amplitudes)
+		newSpectrum = copy.deepcopy(self)
 		
 		for index in range(0, len(newSpectrum.amplitudes)):
 			newSpectrum.amplitudes[index] = 20 * numpy.log10(newSpectrum.amplitudes[index]/referenceValue)
@@ -49,19 +48,20 @@ class Spectrum(object):
 
 
 	# converts the Spectrum instance to a A-weighted dB spectrum
-	def toDbASpectrum(self):
-		newSpectrum = Spectrum()
-		newSpectrum.frequencies = copy.copy(self.frequencies)
-		newSpectrum.amplitudes = copy.copy(self.amplitudes)
+	def toDbASpectrum(self, referenceValue = p0):
+		newSpectrum = copy.deepcopy(self)
 		
 		for index in range(0, len(newSpectrum.amplitudes)):
 			# to use float 64 is necessary for the calculations
 			frequency = numpy.float64(newSpectrum.frequencies[index])
+			amplitude = newSpectrum.amplitudes[index];
 			
-			# according to https://en.wikipedia.org/wiki/A-weighting#A / the standards
-			rAatF = (numpy.float64(12194)**2 * frequency**4)/( (frequency**2 + 20.6**2 ) * math.sqrt((frequency**2+107.7**2)*(frequency**2+737.9**2)) * (frequency**2 + 12194**2) )
-			newSpectrum.amplitudes[index] = 20 * numpy.log10(rAatF*newSpectrum.amplitudes[index]/p0) + 2
-		
+			# to avoid errors, do not change infinity values
+			if(amplitude != numpy.inf and amplitude > 0 and frequency > 0):
+				# according to https://en.wikipedia.org/wiki/A-weighting#A / the standards
+				rAatF = (numpy.float64(12194)**2 * frequency**4)/( (frequency**2 + 20.6**2 ) * math.sqrt((frequency**2+107.7**2)*(frequency**2+737.9**2)) * (frequency**2 + 12194**2) )
+				newSpectrum.amplitudes[index] = 20 * numpy.log10(rAatF*amplitude/referenceValue) + 2
+
 		return newSpectrum
 
 
@@ -80,8 +80,19 @@ class Spectrum(object):
 
 
 
+	# to get from index to frequency the formula index * samplingRate /len(signalPart)
+	# is used
+	def getLocalMaxima(self, indexScaling, minimumFrequencyDistance = 1, cutLowFrequencies = True):
+		peakIndices = peakutils.indexes(self.amplitudes, thres=0.02, min_dist=round(minimumFrequencyDistance))
 
-	#def getLocalMaxima(self, minimumFrequencyDistance = 1):
-		#peakIndices = peakutils.indexes(spectrum.amplitudes, thres=0.02, min_dist=minimumFrequencyDistance)
-		#peakInterpolatedIndices = peakutils.interpolate(array(fourierTransformIndices), fourierTransform, ind=peakIndices)
+		peakInterpolatedIndices = peakutils.interpolate(numpy.array(range(0, len(self.amplitudes))), self.amplitudes, ind=peakIndices)
+		peakFrequencies = [ x * indexScaling for x in peakInterpolatedIndices];
+
+		if(cutLowFrequencies and len(peakFrequencies) > 2):
+			# cut very low frequencies which cannot be from singing
+			if(peakFrequencies[0] < 50):
+				peakFrequencies = peakFrequencies[1:]
+				peakIndices = peakIndices[1:]
+		
+		return peakFrequencies
 
