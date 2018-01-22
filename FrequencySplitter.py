@@ -161,11 +161,11 @@ while position < len(frequencies):
 				filename = outputFolder + "/" + str(round(baseFrequency, 2));
 	
 				# store part in flac file
-				#sf.write(filename + ".flac", signalPart, samplingRate)
+				sf.write(filename + ".flac", signalPart, samplingRate)
 				
 				# diagram
-				#storeDiagram(filename, fourierSpectrum, fourierDbSplSpectrum, fourierDbASpectrum, lpcSpectrum, lpcDbSplSpectrum, lpcDbASpectrum,
-				#	str(baseFrequency) + " Hz ");
+				storeDiagram(filename, fourierSpectrum, fourierDbSplSpectrum, fourierDbASpectrum, lpcSpectrum, lpcDbSplSpectrum, lpcDbASpectrum,
+					str(baseFrequency) + " Hz ");
 	
 				formantIndexes = lpcSpectrum.getFormantIndexes();
 				#singingFormantCadidatesIndex = numpy.array(numpy.argmin((abs(lpcSpectrum.formants-3000) > 2000) & (lpcSpectrum.formants < 3500))).flatten();
