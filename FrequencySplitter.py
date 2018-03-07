@@ -61,21 +61,21 @@ def storeDiagram(filename, fourierSpectrum, fourierDbSplSpectrum, fourierDbASpec
 	formantIndexes = lpcSpectrum.getFormantIndexes();
 	axesArray[0].plot(lpcSpectrum.formants, lpcSpectrum.amplitudes[formantIndexes], marker='o', color='r', ls='');
 	axesArray[0].set_ylabel("raw")
-	axesArray[0].legend(["FFT", "LPC", "LPC formants"])
+	axesArray[0].legend(["FFT", "LPC", "LPC res.freq."])
 	
 	axesArray[1].plot(fourierDbSplSpectrum.frequencies, fourierDbSplSpectrum.amplitudes);
 	axesArray[1].plot(lpcDbSplSpectrum.frequencies, lpcDbSplSpectrum.amplitudes);
 	axesArray[1].plot(lpcSpectrum.formants, lpcDbSplSpectrum.amplitudes[formantIndexes], marker='o', color='r', ls='');
 	axesArray[1].set_ylim(0, 150)
 	axesArray[1].set_ylabel("dB(SPL)")
-	axesArray[1].legend(["FFT", "LPC", "LPC formants"])
+	axesArray[1].legend(["FFT", "LPC", "LPC res.freq."])
 	
 	axesArray[2].plot(fourierDbASpectrum.frequencies, fourierDbASpectrum.amplitudes);
 	axesArray[2].plot(lpcDbASpectrum.frequencies, lpcDbASpectrum.amplitudes);
 	axesArray[2].plot(lpcSpectrum.formants, lpcDbASpectrum.amplitudes[formantIndexes], marker='o', color='r', ls='');
 	axesArray[2].set_ylim(0, 150)
 	axesArray[2].set_ylabel("dB(A)")
-	axesArray[2].legend(["FFT", "LPC", "LPC formants"])
+	axesArray[2].legend(["FFT", "LPC", "LPC res.freq."])
 
 	axesArray[0].set_title(title);
 	#axesArray[0].set_xscale('log');
@@ -192,15 +192,15 @@ while position < len(frequencies):
 					relativeAmplitude = amplitude/baseFrequencyAmplitude
 					
 					# for formant power diagram
-					if(frequency > 2000 and frequency < 3500):
+					if(frequency > 2500 and frequency < 3500 and relativeAmplitude < 1.4 and relativeAmplitude > 0.1):
 						diagramSingingFormantFrequencies.append(baseFrequency)
 						singingFormantRelativeAmplitude.append(relativeAmplitude)
 					else:
-						if(relativeAmplitude > 0.8 and relativeAmplitude < 1.6):
+						if(relativeAmplitude > 0.1 and relativeAmplitude < 1.4):
 							diagramHarmonicFrequencies.append(baseFrequency)
 							harmonicRelativeAmplitude.append(relativeAmplitude)
 					
-					if(relativeAmplitude > 0.8 and relativeAmplitude < 1.6):
+					if(relativeAmplitude > 0.1 and relativeAmplitude < 1.4):
 						# for formant diagram
 						diagramFormantsFrequency.append(baseFrequency)
 						diagramFormantsFormant.append(frequency)
@@ -235,7 +235,7 @@ axe.set_xlabel("frequency")
 
 #axe.set_xscale('log');
 axe.set_xlim(50, 1000);
-axe.set_ylim(0.8, 1.3);
+axe.set_ylim(0.1, 1.4);
 
 pyplot.savefig(outputFolder + "/formantsPowerDiagram.png");
 pyplot.close();
@@ -261,4 +261,8 @@ formantFile.close();
 
 formantFile = open(outputFolder + "/otherFormantsPower.txt", "w");
 formantFile.write("\n".join(str(e) for e in harmonicRelativeAmplitude));
+formantFile.close();
+
+formantFile = open(outputFolder + "/lpcFrequencies.txt", "w");
+formantFile.write("\n".join(str(e) for e in diagramFormantsFormant));
 formantFile.close();
