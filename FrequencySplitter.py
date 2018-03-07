@@ -27,16 +27,20 @@ def frequencyFromAutocorrelation(sig, fs):
 
 	# Find the first low point
 	d = numpy.diff(corr)
-	start = matplotlib.mlab.find(d > 0)[0]
-
-	# Find the next peak after the low point (other than 0 lag).  This bit is
-	# not reliable for long signals, due to the desired peak occurring between
-	# samples, and other peaks appearing higher.
-	# Should use a weighting function to de-emphasize the peaks at longer lags.
-	peak = numpy.argmax(corr[start:]) + start
-	px, py = parabolic(corr, peak)
-
-	return fs / px
+	starts = matplotlib.mlab.find(d > 0)
+	frequency = 0
+	
+	if(starts.size > 0):
+	    start = starts[0]
+	    # Find the next peak after the low point (other than 0 lag).  This bit is
+	    # not reliable for long signals, due to the desired peak occurring between
+	    # samples, and other peaks appearing higher.
+	    # Should use a weighting function to de-emphasize the peaks at longer lags.
+	    peak = numpy.argmax(corr[start:]) + start
+	    px, py = parabolic(corr, peak)
+	    frequency = fs / px
+    
+	return frequency
 
 
 def storeSpectrum(filename, spectrum):
@@ -62,14 +66,14 @@ def storeDiagram(filename, fourierSpectrum, fourierDbSplSpectrum, fourierDbASpec
 	axesArray[1].plot(fourierDbSplSpectrum.frequencies, fourierDbSplSpectrum.amplitudes);
 	axesArray[1].plot(lpcDbSplSpectrum.frequencies, lpcDbSplSpectrum.amplitudes);
 	axesArray[1].plot(lpcSpectrum.formants, lpcDbSplSpectrum.amplitudes[formantIndexes], marker='o', color='r', ls='');
-	axesArray[1].set_ylim(20, 200)
+	axesArray[1].set_ylim(0, 150)
 	axesArray[1].set_ylabel("dB(SPL)")
 	axesArray[1].legend(["FFT", "LPC", "LPC formants"])
 	
 	axesArray[2].plot(fourierDbASpectrum.frequencies, fourierDbASpectrum.amplitudes);
 	axesArray[2].plot(lpcDbASpectrum.frequencies, lpcDbASpectrum.amplitudes);
 	axesArray[2].plot(lpcSpectrum.formants, lpcDbASpectrum.amplitudes[formantIndexes], marker='o', color='r', ls='');
-	axesArray[2].set_ylim(20, 200)
+	axesArray[2].set_ylim(0, 150)
 	axesArray[2].set_ylabel("dB(A)")
 	axesArray[2].legend(["FFT", "LPC", "LPC formants"])
 
@@ -161,7 +165,8 @@ while position < len(frequencies):
 				filename = outputFolder + "/" + str(round(baseFrequency, 2));
 	
 				# store part in flac file
-				sf.write(filename + ".flac", signalPart, samplingRate)
+				#sf.write(filename + ".flac", signalPart, samplingRate)
+				#storeSpectrum(filename, fourierDbSplSpectrum);
 				
 				# diagram
 				storeDiagram(filename, fourierSpectrum, fourierDbSplSpectrum, fourierDbASpectrum, lpcSpectrum, lpcDbSplSpectrum, lpcDbASpectrum,
@@ -191,10 +196,11 @@ while position < len(frequencies):
 						diagramSingingFormantFrequencies.append(baseFrequency)
 						singingFormantRelativeAmplitude.append(relativeAmplitude)
 					else:
-						diagramHarmonicFrequencies.append(baseFrequency)
-						harmonicRelativeAmplitude.append(relativeAmplitude)
+						if(relativeAmplitude > 0.8 and relativeAmplitude < 1.6):
+							diagramHarmonicFrequencies.append(baseFrequency)
+							harmonicRelativeAmplitude.append(relativeAmplitude)
 					
-					if(relativeAmplitude > 0.8):
+					if(relativeAmplitude > 0.8 and relativeAmplitude < 1.6):
 						# for formant diagram
 						diagramFormantsFrequency.append(baseFrequency)
 						diagramFormantsFormant.append(frequency)
@@ -213,7 +219,7 @@ while position < len(frequencies):
 	else:
 		position += 1;
 		
-	sys.stdout.write('Position: ' + str(position) + "/" + str(len(frequencies)) + "\r")
+	sys.stdout.write('Position: ' + str(position) + "/" + str(len(frequencies)) + "\n")
 
 
 # formant power diagram
@@ -229,7 +235,7 @@ axe.set_xlabel("frequency")
 
 #axe.set_xscale('log');
 axe.set_xlim(50, 1000);
-axe.set_ylim(0, 2);
+axe.set_ylim(0.8, 1.3);
 
 pyplot.savefig(outputFolder + "/formantsPowerDiagram.png");
 pyplot.close();
@@ -241,10 +247,18 @@ figure.set_figheight(10);
 
 axe.set_title(outputFolder)
 axe.plot(diagramFormantsFrequency, diagramFormantsFormant,  marker='o', color='b', ls='');
-axe.set_ylabel("formant frequency")
+axe.set_ylabel("LPC-frequency")
 axe.set_xlabel("lowest frequency")
-
+axe.set_ylim(0, 10000);
 axe.set_xlim(50, 1000);
 
 pyplot.savefig(outputFolder + "/formantsRelationDiagram.png");
 pyplot.close();
+
+formantFile = open(outputFolder + "/singingFormantsPower.txt", "w");
+formantFile.write("\n".join(str(e) for e in singingFormantRelativeAmplitude));
+formantFile.close();
+
+formantFile = open(outputFolder + "/otherFormantsPower.txt", "w");
+formantFile.write("\n".join(str(e) for e in harmonicRelativeAmplitude));
+formantFile.close();

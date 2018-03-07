@@ -5,9 +5,10 @@ import scipy.signal
 import scikits.talkbox
 import peakutils
 
-# reference for decibel calculation
-p0 = 2e-5
-#p0 = 10e-12
+# reference for decibel calculation, in audio files, the maximum
+# value is 1
+#p0 = 2e-5
+p0 = 1
 
 class Spectrum(object):
 
