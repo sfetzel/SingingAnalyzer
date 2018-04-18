@@ -41,7 +41,8 @@ axesSubplot.set_yscale('symlog');
 axesSubplot.set_ylim(100, 10000);
 axesSubplot.set_yticks([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 10000]);
 axesSubplot.set_yticklabels([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 10000]);
-
+axesSubplot.set_ylabel("Frequenz [Hz]");
+axesSubplot.set_xlabel("Zeit [s]");
 
 pyplot.savefig(outputDirectory + "/" + basename(filename) + ".png");
 pyplot.close();

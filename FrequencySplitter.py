@@ -15,6 +15,14 @@ from Spectrum import *
 from LpcSpectrum import *
 import os
 
+
+font = {'size'   : 22}
+
+matplotlib.rc('font', **font)
+
+
+
+
 # based on: https://gist.github.com/endolith/255291
 def frequencyFromAutocorrelation(sig, fs):
 	"""
@@ -61,21 +69,21 @@ def storeDiagram(filename, fourierSpectrum, fourierDbSplSpectrum, fourierDbASpec
 	formantIndexes = lpcSpectrum.getFormantIndexes();
 	axesArray[0].plot(lpcSpectrum.formants, lpcSpectrum.amplitudes[formantIndexes], marker='o', color='r', ls='');
 	axesArray[0].set_ylabel("raw")
-	axesArray[0].legend(["FFT", "LPC", "LPC res.freq."])
+	axesArray[0].legend(["FFT", "LPC", "LPC Res.-Freq."])
 	
 	axesArray[1].plot(fourierDbSplSpectrum.frequencies, fourierDbSplSpectrum.amplitudes);
 	axesArray[1].plot(lpcDbSplSpectrum.frequencies, lpcDbSplSpectrum.amplitudes);
 	axesArray[1].plot(lpcSpectrum.formants, lpcDbSplSpectrum.amplitudes[formantIndexes], marker='o', color='r', ls='');
 	axesArray[1].set_ylim(0, 150)
-	axesArray[1].set_ylabel("dB(SPL)")
-	axesArray[1].legend(["FFT", "LPC", "LPC res.freq."])
+	axesArray[1].set_ylabel("dB")
+	axesArray[1].legend(["FFT", "LPC", "LPC Res.-Freq."])
 	
 	axesArray[2].plot(fourierDbASpectrum.frequencies, fourierDbASpectrum.amplitudes);
 	axesArray[2].plot(lpcDbASpectrum.frequencies, lpcDbASpectrum.amplitudes);
 	axesArray[2].plot(lpcSpectrum.formants, lpcDbASpectrum.amplitudes[formantIndexes], marker='o', color='r', ls='');
 	axesArray[2].set_ylim(0, 150)
 	axesArray[2].set_ylabel("dB(A)")
-	axesArray[2].legend(["FFT", "LPC", "LPC res.freq."])
+	axesArray[2].legend(["FFT", "LPC", "LPC Res.-Freq."])
 
 	axesArray[0].set_title(title);
 	#axesArray[0].set_xscale('log');
@@ -170,7 +178,7 @@ while position < len(frequencies):
 				
 				# diagram
 				storeDiagram(filename, fourierSpectrum, fourierDbSplSpectrum, fourierDbASpectrum, lpcSpectrum, lpcDbSplSpectrum, lpcDbASpectrum,
-					str(baseFrequency) + " Hz ");
+					str(round(baseFrequency,2)) + " Hz ");
 	
 				formantIndexes = lpcDbASpectrum.getFormantIndexes();
 				#singingFormantCadidatesIndex = numpy.array(numpy.argmin((abs(lpcSpectrum.formants-3000) > 2000) & (lpcSpectrum.formants < 3500))).flatten();
@@ -230,12 +238,14 @@ figure.set_figheight(10);
 axe.set_title(outputFolder)
 axe.plot(diagramHarmonicFrequencies, harmonicRelativeAmplitude,  marker='o', color='b', ls='', alpha=0.5);
 axe.plot(diagramSingingFormantFrequencies, singingFormantRelativeAmplitude,  marker='o', color='r', ls='', alpha=0.5);
-axe.set_ylabel("relative amplitude")
-axe.set_xlabel("frequency")
+axe.set_ylabel("relative Amplitude")
+axe.set_xlabel("Frequenz")
 
 #axe.set_xscale('log');
 axe.set_xlim(50, 1000);
 axe.set_ylim(0.1, 1.4);
+
+axe.legend(["LPC-Frequenz", "LPC-Frequenz (Gesangsformantsbereich)" ])
 
 pyplot.savefig(outputFolder + "/formantsPowerDiagram.png");
 pyplot.close();
@@ -247,10 +257,11 @@ figure.set_figheight(10);
 
 axe.set_title(outputFolder)
 axe.plot(diagramFormantsFrequency, diagramFormantsFormant,  marker='o', color='b', ls='');
-axe.set_ylabel("LPC-frequency")
-axe.set_xlabel("lowest frequency")
+axe.set_ylabel("LPC-Frequenz")
+axe.set_xlabel("Grundfrequenz")
 axe.set_ylim(0, 10000);
 axe.set_xlim(50, 1000);
+axe.legend(["LPC-Frequenz"]);
 
 pyplot.savefig(outputFolder + "/formantsRelationDiagram.png");
 pyplot.close();
